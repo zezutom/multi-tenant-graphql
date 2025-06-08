@@ -10,22 +10,13 @@ import {
     useSubscription,
     gql
 } from '@apollo/client';
-import {GraphQLWsLink} from '@apollo/client/link/subscriptions';
-import {createClient} from 'graphql-ws';
-import {getMainDefinition} from '@apollo/client/utilities';
+import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
+import { createClient } from 'graphql-ws';
+import { getMainDefinition } from '@apollo/client/utilities';
 
 const API_KEY = 'bob-api-key'; // Change to 'beta-api-key' to simulate pro tenant
 
-// Setup WebSocket link for subscriptions
-const wsLink = new GraphQLWsLink(createClient({
-    url: 'ws://localhost:4000/graphql',
-    connectionParams: {
-        headers: {
-            'x-api-key': API_KEY
-        }
-    }
-}));
-
+// HTTP link (queries, mutations)
 const httpLink = new HttpLink({
     uri: 'http://localhost:4000/graphql',
     headers: {
@@ -33,9 +24,24 @@ const httpLink = new HttpLink({
     }
 });
 
-// Split links: send data to each link depending on operation type
+// WebSocket link (subscriptions)
+const wsLink = new GraphQLWsLink(createClient({
+    url: 'ws://localhost:4000/graphql',
+    connectionParams: {
+        headers: {
+            'x-api-key': API_KEY
+        }
+    },
+    on: {
+        connected: () => console.log('[WS] Connected ✅'),
+        closed: () => console.log('[WS] Closed ❌'),
+        error: (err) => console.error('[WS] Error:', err)
+    }
+}));
+
+// Split based on operation type
 const splitLink = split(
-    ({query}) => {
+    ({ query }) => {
         const definition = getMainDefinition(query);
         return (
             definition.kind === 'OperationDefinition' &&
@@ -46,6 +52,7 @@ const splitLink = split(
     httpLink
 );
 
+// Apollo Client instance
 const client = new ApolloClient({
     link: splitLink,
     cache: new InMemoryCache()
@@ -69,11 +76,12 @@ const UPGRADE_PLAN = gql`
     }
 `;
 
+// Subscription query
 const PLAN_CHANGED = gql`
     subscription {
         planChanged {
             name
-            plan
+            plan { name features }
         }
     }
 `;
@@ -83,39 +91,42 @@ function UserStatus() {
     const [upgradePlan] = useMutation(UPGRADE_PLAN, {
         onCompleted: (data) => {
             console.log('Plan upgraded to:', data.upgradePlan.plan);
-            setPlan(data.upgradePlan.plan);
+            setPlan(data.upgradePlan);
         },
         onError: (error) => {
             console.error('Error upgrading plan:', error);
         }
     });
     const {data: subData} = useSubscription(PLAN_CHANGED);
-    const [plan, setPlan] = useState({
+
+    const [user, setPlan] = useState({
         name: 'Loading...',
-        features: []
+        plan: { name: 'Loading...', features: [] }
     });
 
     useEffect(() => {
         if (data?.currentUser) {
-            setPlan(data.currentUser.plan);
+            console.log('Query data received:', data);
+            setPlan(data.currentUser);
         }
     }, [data]);
 
     useEffect(() => {
         if (subData?.planChanged) {
-            setPlan(subData.planChanged.plan);
+            console.log('Subscription data received:', subData);
+            setPlan(subData.planChanged);
         }
     }, [subData]);
 
     return (
         <div style={{fontFamily: 'sans-serif', padding: 20}}>
             <h1>Multi-Tenant Plan Demo</h1>
-            <p><strong>Current Plan:</strong> {plan.name}</p>
-            <p><strong>Features:</strong> {plan.features.join(', ') || 'None'}</p>
-            {plan?.name === 'pro' && (
+            <p><strong>Current Plan:</strong> {user.plan?.name || 'None'}</p>
+            <p><strong>Features:</strong> {user.plan?.features.join(', ') || 'None'}</p>
+            {user.plan?.name === 'pro' && (
                 <button onClick={() => upgradePlan({variables: {newPlan: 'free'}})}>Downgrade to Free</button>
             )}
-            {plan?.name === 'free' && (
+            {user.plan?.name === 'free' && (
                 <button onClick={() => upgradePlan({variables: {newPlan: 'pro'}})}>Upgrade to Pro</button>
             )}
         </div>

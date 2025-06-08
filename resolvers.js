@@ -1,8 +1,8 @@
-import {PubSub} from 'graphql-subscriptions';
+import { createPubSub } from '@graphql-yoga/subscription';
 import {getTenantFromKey, setPlanForTenant} from './tenants.js';
+import {pubsub} from './pubsub.js';
 
-const pubsub = new PubSub();
-const PLAN_CHANGED = 'PLAN_CHANGED';
+const PLAN_CHANGED = 'planChanged';
 
 const resolvers = {
     Query: {
@@ -18,7 +18,7 @@ const resolvers = {
             console.log('New Plan:', newPlan);
             setPlanForTenant(apiKey, newPlan);
             const updatedTenant = getTenantFromKey(apiKey);
-            console.log('Updated Tenant:', updatedTenant);
+            console.log('Publishing planChanged for: ', updatedTenant.name);
             pubsub.publish(PLAN_CHANGED, {planChanged: updatedTenant});
             return updatedTenant;
         }
@@ -40,7 +40,10 @@ const resolvers = {
     },
     Subscription: {
         planChanged: {
-            subscribe: () => pubsub.asyncIterator([PLAN_CHANGED])
+            subscribe: () => {
+                console.log("Subscribing to planChanged");
+                return pubsub.subscribe(PLAN_CHANGED);
+            }
         }
     }
 };
