@@ -1,5 +1,5 @@
 import { createPubSub } from '@graphql-yoga/subscription';
-import {getTenantFromKey, setPlanForTenant} from './tenants.js';
+import {getTenantFromKey, setPlanForTenant} from '../data/tenants.js';
 import {pubsub} from './pubsub.js';
 
 const PLAN_CHANGED = 'planChanged';

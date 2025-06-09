@@ -6,15 +6,11 @@ import {makeExecutableSchema} from '@graphql-tools/schema';
 import cors from 'cors';
 import {ApolloServer} from '@apollo/server';
 import {expressMiddleware} from '@apollo/server/express4';
-
-import {typeDefs} from './schema.js';
-import {resolvers} from './resolvers.js';
-import {getTenantContext} from './context.js';
-
-import {getTenantFromKey, setPlanForTenant} from './tenants.js';
-import {pubsub} from './pubsub.js';
-import {parse, validate, getOperationAST, execute, subscribe} from 'graphql';
-import {GraphQLSchema, isSchema} from 'graphql';
+import {typeDefs} from './data/schema.js';
+import {resolvers} from './ws/resolvers.js';
+import {getTenantFromKey, setPlanForTenant} from './data/tenants.js';
+import {pubsub} from './ws/pubsub.js';
+import {execute, parse, subscribe, validate} from 'graphql';
 
 async function startServer() {
     const app = express(); // Use ONE express instance
@@ -30,6 +26,26 @@ async function startServer() {
         const tenantId = tenantSchemas[apiKey] || 'default';
     }
 
+    function getTenantFromSubscription(ctx) {
+        const apiKey = ctx.connectionParams?.headers?.['x-api-key'];
+        const tenant = getTenantByKey(apiKey);
+        return {apiKey, tenant};
+    }
+
+    function getTenantFromRequest(req) {
+        const apiKey = req.headers['x-api-key'];
+        const tenant = getTenantByKey(apiKey);
+        return {apiKey, tenant};
+    }
+
+    function getTenantByKey(apiKey) {
+        const tenant = getTenantFromKey(apiKey);
+        if (!tenant) {
+            throw new Error('Unauthorized tenant');
+        }
+        return tenant;
+    }
+
     // Set up WebSocket server for GraphQL subscriptions
     const wsServer = new WebSocketServer({
         server: httpServer,
@@ -39,21 +55,10 @@ async function startServer() {
     useServer(
         {
             schema,
-            context: (ctx) => {
-                const apiKey = ctx.connectionParams?.headers?.['x-api-key'];
-                const tenant = getTenantFromKey(apiKey);
-                if (!tenant) {
-                    throw new Error('Unauthorized tenant');
-                }
-                console.log('✅ WS Context established:', apiKey);
-                return {apiKey, tenant};
-            },
             onSubscribe: (ctx, msg) => {
                 try {
                     console.log('[WS] onSubscribe received:', msg);
-                    const apiKey = ctx.connectionParams?.headers?.['x-api-key'];
-                    const tenant = getTenantFromKey(apiKey);
-                    const tenantId = tenant?.name?.toLowerCase() || 'default';
+                    const {apiKey, tenant} = getTenantFromSubscription(ctx);
 
                     // Dynamically apply directives here
                     const operationName = msg.payload.operationName;
@@ -73,7 +78,7 @@ async function startServer() {
                         subscribe
                     };
                 } catch (err) {
-                    console.error('❌ onSubscribe failed:', err);
+                    console.error('onSubscribe failed:', err);
                     return err;
                 }
             },
@@ -92,7 +97,7 @@ async function startServer() {
 
     // Apply middleware to the same `app` instance, in this order:
     app.use(cors());
-    app.use(express.json()); // Must come BEFORE expressMiddleware
+    app.use(express.json());
 
     await server.start();
 
@@ -101,7 +106,7 @@ async function startServer() {
         '/graphql',
         expressMiddleware(server, {
             context: async ({req}) => {
-                const {apiKey, tenant} = getTenantContext(req);
+                const {apiKey, tenant} = getTenantFromRequest(req);
                 // Dynamically set schema based on tenant
                 server.schema = getSchemaForTenant(apiKey);
                 return {apiKey, tenant};

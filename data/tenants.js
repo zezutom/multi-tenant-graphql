@@ -1,13 +1,5 @@
-const plans = {
-    "free": {
-        name: "free",
-        features: ["usage"]
-    },
-    "pro": {
-        name: "pro",
-        features: ["usage", "conversionFunnel", "churnRate"]
-    }
-}
+import {plans} from "./plans.js";
+
 const tenants = {
     "alice-api-key": {
         name: "Alice",
