@@ -123,6 +123,8 @@ function UserStatus() {
             <h1>Multi-Tenant Plan Demo</h1>
             <p><strong>Current Plan:</strong> {user.plan?.name || 'None'}</p>
             <p><strong>Features:</strong> {user.plan?.features.join(', ') || 'None'}</p>
+            <p><strong>Max Seats:</strong> {user.plan.limits?.maxSeats || '-'} </p>
+            <p><strong>Max Storage:</strong> {user.plan.limits?.maxStorage || '-'} </p>
             {user.plan?.name === 'pro' && (
                 <button onClick={() => upgradePlan({variables: {newPlan: 'free'}})}>Downgrade to Free</button>
             )}
