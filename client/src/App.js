@@ -62,7 +62,7 @@ const GET_USER = gql`
     query {
         currentUser {
             name
-            plan { name features }
+            plan { name features limits { maxSeats maxStorage } }
         }
     }
 `;
@@ -71,7 +71,7 @@ const UPGRADE_PLAN = gql`
     mutation UpgradePlan($newPlan: String!) {
         upgradePlan(newPlan: $newPlan) {
             name
-            plan { name features }
+            plan { name features limits { maxSeats maxStorage } }
         }
     }
 `;
@@ -81,7 +81,7 @@ const PLAN_CHANGED = gql`
     subscription {
         planChanged {
             name
-            plan { name features }
+            plan { name features limits { maxSeats maxStorage } }
         }
     }
 `;

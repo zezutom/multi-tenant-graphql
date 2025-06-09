@@ -23,6 +23,15 @@ const resolvers = {
             return updatedTenant;
         }
     },
+    Plan: {
+      limits: (parent, arg, context) => {
+          if (context.apiKey !== 'bob-api-key') return null;
+          return {
+              maxSeats: 10,
+              maxStorage: 100
+          };
+      }
+    },
     Report: {
         usage: (_, __, {tenant}) => 123,
         conversionFunnel: (_, __, {tenant}) => {

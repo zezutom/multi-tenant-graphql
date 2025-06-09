@@ -10,14 +10,22 @@ const typeDefs = gql`
         upgradePlan(newPlan: String!): User!
     }
     
-    type User {
-        name: String!
-        plan: Plan!
+    directive @requiresTenant(name: String!) on FIELD_DEFINITION
+    
+    type PlanLimits {
+        maxSeats: Int
+        maxStorage: Int
     }
-
+    
     type Plan {
         name: String!
         features: [String!]!
+        limits: PlanLimits @requiresTenant(name: "bob")
+    }
+
+    type User {
+        name: String!
+        plan: Plan!
     }
     
     type Report {

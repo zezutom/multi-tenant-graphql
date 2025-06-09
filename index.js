@@ -13,6 +13,8 @@ import {getTenantContext} from './context.js';
 
 import {getTenantFromKey, setPlanForTenant} from './tenants.js';
 import {pubsub} from './pubsub.js';
+import {parse, validate, getOperationAST, execute, subscribe} from 'graphql';
+import {GraphQLSchema, isSchema} from 'graphql';
 
 async function startServer() {
     const app = express(); // Use ONE express instance
@@ -20,12 +22,19 @@ async function startServer() {
     const httpServer = createServer(app);
     const schema = makeExecutableSchema({typeDefs, resolvers});
 
+    function getSchemaForTenant(apiKey) {
+        const tenantSchemas = {
+            'bob-api-key': 'bob',
+            'alice-api-key': 'alice'
+        }
+        const tenantId = tenantSchemas[apiKey] || 'default';
+    }
+
     // Set up WebSocket server for GraphQL subscriptions
     const wsServer = new WebSocketServer({
         server: httpServer,
         path: '/graphql'
     });
-
 
     useServer(
         {
@@ -37,10 +46,36 @@ async function startServer() {
                     throw new Error('Unauthorized tenant');
                 }
                 console.log('✅ WS Context established:', apiKey);
-                return { apiKey, tenant };
+                return {apiKey, tenant};
             },
             onSubscribe: (ctx, msg) => {
-                console.log('[WS] onSubscribe received:', msg);
+                try {
+                    console.log('[WS] onSubscribe received:', msg);
+                    const apiKey = ctx.connectionParams?.headers?.['x-api-key'];
+                    const tenant = getTenantFromKey(apiKey);
+                    const tenantId = tenant?.name?.toLowerCase() || 'default';
+
+                    // Dynamically apply directives here
+                    const operationName = msg.payload.operationName;
+                    const document = parse(msg.payload.query);
+
+                    const errors = validate(schema, document);
+                    if (errors.length > 0) return errors;
+
+                    // Attach context + tenant-specific schema
+                    return {
+                        schema,
+                        operationName,
+                        document,
+                        variableValues: msg.payload.variables,
+                        contextValue: {apiKey, tenant},
+                        execute,
+                        subscribe
+                    };
+                } catch (err) {
+                    console.error('❌ onSubscribe failed:', err);
+                    return err;
+                }
             },
             onError: (ctx, msg, errors) => {
                 console.error('[WS] Subscription error:', errors);
@@ -65,7 +100,12 @@ async function startServer() {
     app.use(
         '/graphql',
         expressMiddleware(server, {
-            context: async ({req}) => getTenantContext(req),
+            context: async ({req}) => {
+                const {apiKey, tenant} = getTenantContext(req);
+                // Dynamically set schema based on tenant
+                server.schema = getSchemaForTenant(apiKey);
+                return {apiKey, tenant};
+            }
         })
     );
 
@@ -73,7 +113,7 @@ async function startServer() {
         const {apiKey, newPlan} = req.body;
         setPlanForTenant(apiKey, newPlan);
         const updatedTenant = getTenantFromKey(apiKey);
-        console.log(`Publishing plan change for tenant: ${updatedTenant.name} -> ${updatedTenant.plan?.name || 'None'}`);
+        console.log(`Publishing plan change for tenant: ${JSON.stringify(updatedTenant)}`);
         pubsub.publish('planChanged', {planChanged: updatedTenant});
         res.send({message: `Upgraded to ${newPlan}`});
     });
@@ -85,6 +125,6 @@ async function startServer() {
     });
 }
 
-    startServer().catch(err => {
-        console.error('Failed to start server:', err);
-    });
+startServer().catch(err => {
+    console.error('Failed to start server:', err);
+});
