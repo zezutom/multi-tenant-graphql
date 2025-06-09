@@ -11,6 +11,7 @@ const typeDefs = gql`
     }
     
     directive @requiresTenant(name: String!) on FIELD_DEFINITION
+    directive @requiresFeature(name: String) on FIELD_DEFINITION | OBJECT
     
     type PlanLimits {
         maxSeats: Int
@@ -26,12 +27,13 @@ const typeDefs = gql`
     type User {
         name: String!
         plan: Plan!
+        report: Report
     }
     
-    type Report {
-        usage: Int!
-        conversionFunnel: String
+    type Report @requiresFeature {
+        usage: Int
         churnRate: String
+        funnel: String @requiresFeature(name: "conversionFunnel")
     }
 
     type Subscription {

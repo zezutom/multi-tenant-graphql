@@ -63,6 +63,7 @@ const GET_USER = gql`
         currentUser {
             name
             plan { name features limits { maxSeats maxStorage } }
+            report { usage churnRate funnel }
         }
     }
 `;
@@ -72,6 +73,7 @@ const UPGRADE_PLAN = gql`
         upgradePlan(newPlan: $newPlan) {
             name
             plan { name features limits { maxSeats maxStorage } }
+            report { usage churnRate funnel }
         }
     }
 `;
@@ -82,6 +84,7 @@ const PLAN_CHANGED = gql`
         planChanged {
             name
             plan { name features limits { maxSeats maxStorage } }
+            report { usage churnRate funnel }
         }
     }
 `;
@@ -123,8 +126,18 @@ function UserStatus() {
             <h1>Multi-Tenant Plan Demo</h1>
             <p><strong>Current Plan:</strong> {user.plan?.name || 'None'}</p>
             <p><strong>Features:</strong> {user.plan?.features.join(', ') || 'None'}</p>
-            <p><strong>Max Seats:</strong> {user.plan.limits?.maxSeats || '-'} </p>
-            <p><strong>Max Storage:</strong> {user.plan.limits?.maxStorage || '-'} </p>
+            {user.plan.limits && (
+                <p><strong>Max Seats:</strong> {user.plan.limits.maxSeats || 0} </p>
+            )}
+            {user.plan.limits && (
+                <p><strong>Max Storage:</strong> {user.plan.limits.maxStorage || 0} </p>
+            )}
+            <p><strong>Report:</strong></p>
+            <ul>
+                { user.report?.churnRate && <li>Churn Rate: {user.report.churnRate}</li> }
+                { user.report?.funnel && <li>Conversion Funnel: {user.report.funnel}</li> }
+                { user.report?.usage && <li>Usage: {user.report.usage}</li> }
+            </ul>
             {user.plan?.name === 'pro' && (
                 <button onClick={() => upgradePlan({variables: {newPlan: 'free'}})}>Downgrade to Free</button>
             )}
