@@ -9,6 +9,10 @@ const typeDefs = gql`
     type Mutation {
         upgradePlan(newPlan: String!): User!
     }
+
+    type Subscription {
+        planChanged: User!
+    }
     
     directive @requiresTenant(name: String!) on FIELD_DEFINITION
     directive @requiresFeature(name: String) on FIELD_DEFINITION | OBJECT
@@ -34,10 +38,6 @@ const typeDefs = gql`
         usage: Int
         churnRate: String
         funnel: String @requiresFeature(name: "conversionFunnel")
-    }
-
-    type Subscription {
-        planChanged: User!
     }
 `;
 

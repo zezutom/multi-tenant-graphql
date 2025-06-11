@@ -14,7 +14,7 @@ import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
 
-const API_KEY = 'bob-api-key'; // Change to 'beta-api-key' to simulate pro tenant
+const API_KEY = 'bob-api-key';
 
 // HTTP link (queries, mutations)
 const httpLink = new HttpLink({

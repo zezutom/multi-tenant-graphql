@@ -39,6 +39,14 @@ const resolvers = {
             return updatedTenant;
         }
     },
+    Subscription: {
+        planChanged: {
+            subscribe: () => {
+                console.log("Subscribing to planChanged");
+                return pubsub.subscribe(PLAN_CHANGED);
+            }
+        }
+    },
     Plan: {
       limits: (parent, args, context, info) => {
           return tenantGuard('limits', parent, args, context, info, () => ({
@@ -61,14 +69,6 @@ const resolvers = {
     User: {
         report: (user, _, context) => {
             return {}; // Report is virtual — resolved field-by-field based on tenant context
-        }
-    },
-    Subscription: {
-        planChanged: {
-            subscribe: () => {
-                console.log("Subscribing to planChanged");
-                return pubsub.subscribe(PLAN_CHANGED);
-            }
         }
     }
 };
